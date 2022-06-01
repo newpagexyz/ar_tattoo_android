@@ -3,20 +3,21 @@ package com.example.nativeopencvandroidtemplate
 import android.Manifest
 import android.app.Activity
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.os.Bundle
-import androidx.core.app.ActivityCompat
 import android.util.Log
 import android.view.SurfaceView
 import android.view.WindowManager
 import android.widget.Toast
-import org.opencv.android.BaseLoaderCallback
-import org.opencv.android.CameraBridgeViewBase
-import org.opencv.android.LoaderCallbackInterface
-import org.opencv.android.OpenCVLoader
+import androidx.core.app.ActivityCompat
+import org.opencv.android.*
+import org.opencv.core.CvType
 import org.opencv.core.Mat
 
 class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
 
+    private var tattooExample: Mat? = null
     private var mOpenCvCameraView: CameraBridgeViewBase? = null
 
     private val mLoaderCallback = object : BaseLoaderCallback(this) {
@@ -27,6 +28,10 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
 
                     // Load native library after(!) OpenCV initialization
                     System.loadLibrary("native-lib")
+
+                    val bMap: Bitmap = BitmapFactory.decodeResource(resources, R.drawable.tattoo_example)
+                    tattooExample = Mat.zeros(bMap.height, bMap.width, CvType.CV_8UC3)
+                    Utils.bitmapToMat(bMap, tattooExample)
 
                     mOpenCvCameraView!!.enableView()
                 }
@@ -108,16 +113,17 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
 
     override fun onCameraFrame(frame: CameraBridgeViewBase.CvCameraViewFrame): Mat {
         // get current camera frame as OpenCV Mat object
-        val mat = frame.gray()
+        val mat = frame.rgba()
 
         // native call to process current camera frame
-        adaptiveThresholdFromJNI(mat.nativeObjAddr)
+
+        adaptiveThresholdFromJNI(mat.nativeObjAddr, tattooExample!!.nativeObjAddr)
 
         // return processed frame for live preview
         return mat
     }
 
-    private external fun adaptiveThresholdFromJNI(matAddr: Long)
+    private external fun adaptiveThresholdFromJNI(matAddr: Long, tattooAddr: Long)
 
     companion object {
 
