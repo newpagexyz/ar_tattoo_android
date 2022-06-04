@@ -32,12 +32,16 @@ std::vector<cv::Point2f> intersections = {
         cv::Point2f(0.0, 0.0)
 };
 
+bool initialized = false;
+
 bool isIntersectionsNotEmpty(std::vector<cv::Point2f> &intersections) {
-    for (int i = 0; i < intersections.size(); i++)
+    if (intersections.empty()) return false;
+    if (intersections.size() < 4) return false;
+    for (int i = 1; i < intersections.size(); i++)
     {
-        if (norm(intersections[i]) >= 0.0) return true;
+        if (distance(intersections[i], intersections[i-1]) < 30.0) return false;
     }
-    return false;
+    return true;
 }
 
 void findIntersections(cv::Mat &mat, std::vector<cv::Point2f> &oldIntersections) {
@@ -148,14 +152,22 @@ void findIntersections(cv::Mat &mat, std::vector<cv::Point2f> &oldIntersections)
     std::vector<cv::Point2i> intersections2;
     cv::findNonZero(blank, intersections2);
 
+    std::vector<cv::Point2f> newIntersectons;
+
     if ((intersections.size() >= 2) && (intersections2.size() >= 2))
     {
-        oldIntersections = {
+        newIntersectons = {
                 cv::Point2f(intersections[0].x, intersections[0].y),
                 cv::Point2f(intersections[1].x, intersections[1].y),
                 cv::Point2f(intersections2[1].x, intersections2[1].y),
                 cv::Point2f(intersections2[0].x, intersections2[0].y)
         };
+
+    }
+
+    if (isIntersectionsNotEmpty(newIntersectons)) {
+        oldIntersections = newIntersectons;
+        initialized = true;
     }
 }
 
@@ -171,11 +183,13 @@ Java_com_example_nativeopencvandroidtemplate_MainActivity_adaptiveThresholdFromJ
     cv::Mat &mat = *(cv::Mat *) matAddr;      //Mat передается в RGB!
     cv::Mat tattoo = *(cv::Mat *) tattooAddr;
 
-    cv::resize(tattoo, tattoo, cv::Size(), 0.5, 0.5);
+    double koeff = 1280.0 / tattoo.cols;
+
+    cv::resize(tattoo, tattoo, cv::Size(), koeff, koeff);
 
     findIntersections(mat, intersections);
 
-    if (isIntersectionsNotEmpty(intersections)) {
+    if (initialized) {
 
         cv::Mat M = cv::getPerspectiveTransform(points3d, intersections);
         cv::Mat dframe;
@@ -199,7 +213,10 @@ Java_com_example_nativeopencvandroidtemplate_MainActivity_adaptiveThresholdFromJ
         cv::bitwise_and(mat, blank, mat, mask);
         cv::add(mat, dframe, mat);
 
+
+
     }
+
 
 }
 }
