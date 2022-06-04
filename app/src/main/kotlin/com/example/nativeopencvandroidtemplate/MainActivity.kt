@@ -15,14 +15,18 @@ import android.widget.ImageButton
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import org.opencv.android.*
+import org.opencv.core.Core
 import org.opencv.core.CvType
 import org.opencv.core.Mat
+import org.opencv.imgproc.Imgproc
 
 
 class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
 
     private var tattooExample: Mat? = null
     private var mOpenCvCameraView: CameraBridgeViewBase? = null
+
+    private var toggleColor = false
 
     private val mLoaderCallback = object : BaseLoaderCallback(this) {
         override fun onManagerConnected(status: Int) {
@@ -67,10 +71,14 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
         mOpenCvCameraView!!.visibility = SurfaceView.VISIBLE
         mOpenCvCameraView!!.setCvCameraViewListener(this)
 
-        val selectFromGallery = findViewById<Button>(R.id.imageButton2)
+        val selectFromGallery = findViewById<ImageButton>(R.id.imageButton2)
         selectFromGallery.setOnClickListener {
             val pickImageIntent = Intent(Intent.ACTION_PICK, android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
             startActivityForResult(pickImageIntent, 1)
+        }
+        val toggleColorButton = findViewById<ImageButton>(R.id.toggleColor)
+        toggleColorButton.setOnClickListener {
+            toggleColor = !toggleColor
         }
     }
 
@@ -123,15 +131,15 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
     override fun onCameraViewStopped() {}
 
     override fun onCameraFrame(frame: CameraBridgeViewBase.CvCameraViewFrame): Mat {
-        // get current camera frame as OpenCV Mat object
-        val mat = frame.rgba()
 
-        // native call to process current camera frame
+        val mRgba = frame.rgba()
+        val mRgbaT: Mat = mRgba.t()
+        Core.flip(mRgba.t(), mRgbaT, 1)
+        Imgproc.resize(mRgbaT, mRgbaT, mRgba.size())
 
-        adaptiveThresholdFromJNI(mat.nativeObjAddr, tattooExample!!.nativeObjAddr)
-
-        // return processed frame for live preview
-        return mat
+        adaptiveThresholdFromJNI(mRgbaT.nativeObjAddr, tattooExample!!.nativeObjAddr, toggleColor)
+        mRgba.release()
+        return mRgbaT
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, imageReturnedIntent: Intent) {
@@ -147,7 +155,7 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
         }
     }
 
-    private external fun adaptiveThresholdFromJNI(matAddr: Long, tattooAddr: Long)
+    private external fun adaptiveThresholdFromJNI(matAddr: Long, tattooAddr: Long, toggleColor: Boolean)
 
     companion object {
 
