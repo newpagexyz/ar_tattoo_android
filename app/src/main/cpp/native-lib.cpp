@@ -18,24 +18,29 @@ inline cv::Vec2f findOrthogonal(cv::Vec2f vector) {
     return cv::Vec2f(std::sqrt(c) * 300, std::sqrt(d) * 300);
 }
 
-void findIntersections(cv::Mat &mat, std::vector<cv::Point2f> &oldIntersections) {
+std::vector<cv::Point2f> points3d = {
+        cv::Point2f(0.0, 720.0),
+        cv::Point2f(1280.0, 720.0),
+        cv::Point2f(1280.0, 0.0),
+        cv::Point2f(0.0, 0.0)
+};
 
+std::vector<cv::Point2f> intersections = {
+        cv::Point2f(0.0, 0.0),
+        cv::Point2f(0.0, 0.0),
+        cv::Point2f(0.0, 0.0),
+        cv::Point2f(0.0, 0.0)
+};
+
+bool isIntersectionsNotEmpty(std::vector<cv::Point2f> &intersections) {
+    for (int i = 0; i < intersections.size(); i++)
+    {
+        if (norm(intersections[i]) >= 0.0) return true;
+    }
+    return false;
 }
 
-extern "C" {
-void JNICALL
-Java_com_example_nativeopencvandroidtemplate_MainActivity_adaptiveThresholdFromJNI(JNIEnv *env,
-                                                                                   jobject instance,
-                                                                                   jlong matAddr,
-                                                                                   jlong tattooAddr
-) {
-
-
-    cv::Mat &mat = *(cv::Mat *) matAddr;      //Mat передается в RGB!
-    cv::Mat tattoo = *(cv::Mat *) tattooAddr;
-
-    cv::resize(tattoo, tattoo, cv::Size(), 0.5, 0.5);
-
+void findIntersections(cv::Mat &mat, std::vector<cv::Point2f> &oldIntersections) {
     const cv::Scalar lowerBound = cv::Scalar(0, 48, 80);
     const cv::Scalar upperBound = cv::Scalar(20, 255, 255);
 
@@ -64,11 +69,8 @@ Java_com_example_nativeopencvandroidtemplate_MainActivity_adaptiveThresholdFromJ
 
     if (contours.empty()) return;
 
-//    cv::drawContours(mat, contours, max_index, cv::Scalar(0, 255, 0), 5);
-
     std::vector<std::vector<cv::Point>> hull(1);
     cv::convexHull(contours[max_index], hull[0]);
-//    cv::drawContours(mat, hull, 0, cv::Scalar(255, 0, 0), 5);
 
     cv::Moments mu;
     mu = cv::moments(contours[max_index], false);
@@ -146,39 +148,49 @@ Java_com_example_nativeopencvandroidtemplate_MainActivity_adaptiveThresholdFromJ
     std::vector<cv::Point2i> intersections2;
     cv::findNonZero(blank, intersections2);
 
-
-    if ((intersections2.size() >= 2) && (intersections.size() >= 2)) {
-
-        std::vector<cv::Point2f> points3d = {
-                cv::Point2f(0.0, 720.0),
-                cv::Point2f(1280.0, 720.0),
-                cv::Point2f(1280.0, 0.0),
-                cv::Point2f(0.0, 0.0)
-        };
-
-        std::vector<cv::Point2f> points2d = {
+    if ((intersections.size() >= 2) && (intersections2.size() >= 2))
+    {
+        oldIntersections = {
                 cv::Point2f(intersections[0].x, intersections[0].y),
                 cv::Point2f(intersections[1].x, intersections[1].y),
                 cv::Point2f(intersections2[1].x, intersections2[1].y),
-                cv::Point2f(intersections2[0].x, intersections2[0].y),
+                cv::Point2f(intersections2[0].x, intersections2[0].y)
         };
+    }
+}
 
-        std::vector<cv::Point2i> points2dint = {
-                cv::Point2i(intersections[0].x, intersections[0].y),
-                cv::Point2i(intersections[1].x, intersections[1].y),
-                cv::Point2i(intersections2[1].x, intersections2[1].y),
-                cv::Point2i(intersections2[0].x, intersections2[0].y),
-        };
+extern "C" {
+void JNICALL
+Java_com_example_nativeopencvandroidtemplate_MainActivity_adaptiveThresholdFromJNI(JNIEnv *env,
+                                                                                   jobject instance,
+                                                                                   jlong matAddr,
+                                                                                   jlong tattooAddr
+) {
 
-//        cv::line(mat, intersections[0], intersections[1], cv::Scalar(0, 0, 255), 5);
-//        cv::line(mat, intersections2[1], intersections2[0], cv::Scalar(0, 0, 255), 5);
 
-        cv::Mat M = cv::getPerspectiveTransform(points3d, points2d);
+    cv::Mat &mat = *(cv::Mat *) matAddr;      //Mat передается в RGB!
+    cv::Mat tattoo = *(cv::Mat *) tattooAddr;
+
+    cv::resize(tattoo, tattoo, cv::Size(), 0.5, 0.5);
+
+    findIntersections(mat, intersections);
+
+    if (isIntersectionsNotEmpty(intersections)) {
+
+        cv::Mat M = cv::getPerspectiveTransform(points3d, intersections);
         cv::Mat dframe;
         cv::warpPerspective(tattoo, dframe, M, cv::Size(mat.cols, mat.rows));
 
         cv::Mat mask = cv::Mat::zeros(mat.rows, mat.cols, CV_8UC1);
         cv::Mat blank = cv::Mat::zeros(mat.rows, mat.cols, CV_8UC4);
+
+        std::vector<cv::Point2i> points2dint = {
+                cv::Point2i(intersections[0].x, intersections[0].y),
+                cv::Point2i(intersections[1].x, intersections[1].y),
+                cv::Point2i(intersections[2].x, intersections[2].y),
+                cv::Point2i(intersections[3].x, intersections[3].y),
+        };
+
         cv::fillConvexPoly(mask, points2dint, 255);
         cv::Mat mask_inv;
         cv::bitwise_not(mask, mask_inv);

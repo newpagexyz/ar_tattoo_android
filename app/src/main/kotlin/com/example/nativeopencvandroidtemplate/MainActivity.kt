@@ -1,19 +1,31 @@
 package com.example.nativeopencvandroidtemplate
 
 import android.Manifest
+import android.R.attr.path
 import android.app.Activity
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.view.SurfaceView
 import android.view.WindowManager
+import android.widget.Button
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
+import com.bumptech.glide.Glide
+import com.bumptech.glide.load.DataSource
+import com.bumptech.glide.load.engine.GlideException
+import com.bumptech.glide.request.RequestListener
+import com.bumptech.glide.request.target.SimpleTarget
+import com.bumptech.glide.request.target.Target
+import com.bumptech.glide.request.transition.Transition
 import org.opencv.android.*
 import org.opencv.core.CvType
 import org.opencv.core.Mat
+
 
 class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
 
@@ -57,10 +69,14 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
         setContentView(R.layout.activity_main)
 
         mOpenCvCameraView = findViewById<CameraBridgeViewBase>(R.id.main_surface)
-
         mOpenCvCameraView!!.visibility = SurfaceView.VISIBLE
-
         mOpenCvCameraView!!.setCvCameraViewListener(this)
+
+        val selectFromGallery = findViewById<Button>(R.id.selectImage)
+        selectFromGallery.setOnClickListener {
+            val pickImageIntent = Intent(Intent.ACTION_PICK, android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
+            startActivityForResult(pickImageIntent, 1)
+        }
     }
 
     override fun onRequestPermissionsResult(
@@ -121,6 +137,48 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
 
         // return processed frame for live preview
         return mat
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, imageReturnedIntent: Intent) {
+        super.onActivityResult(requestCode, resultCode, imageReturnedIntent)
+        when (requestCode) {
+            0 -> if (resultCode == RESULT_OK) {
+                val selectedImage: Uri? = imageReturnedIntent.data
+                Log.d("IMAGE", selectedImage.toString())
+            }
+            1 -> if (resultCode == RESULT_OK) {
+                val selectedImage: Uri? = imageReturnedIntent.data
+                Glide.with(this)
+                    .asBitmap()
+                    .load(selectedImage)
+                    .listener(object : RequestListener<Bitmap> {
+                        override fun onLoadFailed(
+                            e: GlideException?,
+                            model: Any?,
+                            target: Target<Bitmap>?,
+                            isFirstResource: Boolean
+                        ): Boolean {
+                            Log.e("ERROR", "FILE NOT LOADED")
+                            return false;
+                        }
+
+                        override fun onResourceReady(
+                            resource: Bitmap?,
+                            model: Any?,
+                            target: Target<Bitmap>?,
+                            dataSource: DataSource?,
+                            isFirstResource: Boolean
+                        ): Boolean {
+                            tattooExample = Mat.zeros(resource!!.height, resource.width, CvType.CV_8UC3)
+                            Utils.bitmapToMat(resource, tattooExample)
+                            Log.d("IMAGE", "SUCCESS")
+                            return false;
+                        }
+
+                    })
+                Log.d("IMAGE", selectedImage.toString())
+            }
+        }
     }
 
     private external fun adaptiveThresholdFromJNI(matAddr: Long, tattooAddr: Long)
