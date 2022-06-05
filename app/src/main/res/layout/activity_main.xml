@@ -11,8 +11,9 @@
         <ImageButton
             android:id="@+id/imageButton2"
             style="@android:style/Widget.DeviceDefault.ImageButton"
-            android:layout_width="50dp"
-            android:layout_height="50dp"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginLeft="40dp"
             android:visibility="visible"
             android:background="#00000000"
             android:src="@drawable/gall"
@@ -21,18 +22,37 @@
         <ImageButton
             android:id="@+id/toggleColor"
             style="@android:style/Widget.DeviceDefault.ImageButton"
-            android:layout_width="50dp"
-            android:layout_height="50dp"
+            android:layout_width="40dp"
+            android:layout_marginLeft="40dp"
+            android:layout_height="40dp"
             android:src="@drawable/move"
             android:background="#00000000"
             />
     </LinearLayout>
 
 
-
     <org.opencv.android.JavaCameraView
         android:id="@+id/main_surface"
-        android:layout_width="fill_parent"
-        android:layout_height="fill_parent" />
+        android:layout_width="match_parent"
+        android:layout_height="600dp" />
+
+    <SeekBar
+        android:id="@+id/hsens"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:progress="100"
+        android:max="100" />
+    <SeekBar
+        android:id="@+id/ssens"
+        android:layout_width="match_parent"
+        android:progress="100"
+        android:layout_height="wrap_content"
+        android:max="100" />
+    <SeekBar
+        android:id="@+id/vsens"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:progress="100"
+        android:max="100" />
 
 </LinearLayout>

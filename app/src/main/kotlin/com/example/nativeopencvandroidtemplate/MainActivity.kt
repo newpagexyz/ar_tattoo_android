@@ -10,8 +10,8 @@ import android.os.Bundle
 import android.util.Log
 import android.view.SurfaceView
 import android.view.WindowManager
-import android.widget.Button
 import android.widget.ImageButton
+import android.widget.SeekBar
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import org.opencv.android.*
@@ -27,6 +27,10 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
     private var mOpenCvCameraView: CameraBridgeViewBase? = null
 
     private var toggleColor = false
+
+    private var hSensitivity = 100
+    private var sSensitivity = 100
+    private var vSensitivity = 100
 
     private val mLoaderCallback = object : BaseLoaderCallback(this) {
         override fun onManagerConnected(status: Int) {
@@ -80,6 +84,40 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
         toggleColorButton.setOnClickListener {
             toggleColor = !toggleColor
         }
+
+        val hSensitivityTrackBack = findViewById<SeekBar>(R.id.hsens)
+        hSensitivityTrackBack.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(p0: SeekBar?, p1: Int, p2: Boolean) {
+                hSensitivity = p1
+            }
+
+            override fun onStartTrackingTouch(p0: SeekBar?) {}
+
+            override fun onStopTrackingTouch(p0: SeekBar?) {}
+        })
+
+        val sSensitivityTrackBack = findViewById<SeekBar>(R.id.ssens)
+        hSensitivityTrackBack.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(p0: SeekBar?, p1: Int, p2: Boolean) {
+                sSensitivity = p1
+            }
+
+            override fun onStartTrackingTouch(p0: SeekBar?) {}
+
+            override fun onStopTrackingTouch(p0: SeekBar?) {}
+        })
+
+        val vSensitivityTrackBack = findViewById<SeekBar>(R.id.vsens)
+        hSensitivityTrackBack.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(p0: SeekBar?, p1: Int, p2: Boolean) {
+                vSensitivity = p1
+            }
+
+            override fun onStartTrackingTouch(p0: SeekBar?) {}
+
+            override fun onStopTrackingTouch(p0: SeekBar?) {}
+        })
+
     }
 
     override fun onRequestPermissionsResult(
@@ -137,7 +175,7 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
         Core.flip(mRgba.t(), mRgbaT, 1)
         Imgproc.resize(mRgbaT, mRgbaT, mRgba.size())
 
-        adaptiveThresholdFromJNI(mRgbaT.nativeObjAddr, tattooExample!!.nativeObjAddr, toggleColor)
+        adaptiveThresholdFromJNI(mRgbaT.nativeObjAddr, tattooExample!!.nativeObjAddr, toggleColor, hSensitivity, sSensitivity, vSensitivity)
         mRgba.release()
         return mRgbaT
     }
@@ -155,7 +193,7 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
         }
     }
 
-    private external fun adaptiveThresholdFromJNI(matAddr: Long, tattooAddr: Long, toggleColor: Boolean)
+    private external fun adaptiveThresholdFromJNI(matAddr: Long, tattooAddr: Long, toggleColor: Boolean, hSens: Int, sSens: Int, vSens: Int)
 
     companion object {
 

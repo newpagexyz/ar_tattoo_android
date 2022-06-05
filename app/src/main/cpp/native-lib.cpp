@@ -37,10 +37,9 @@ bool initialized = false;
 cv::Scalar lowerBound = cv::Scalar(0, 48, 80);
 cv::Scalar upperBound = cv::Scalar(20, 255, 255);
 
-const cv::Point2i pickColorPoint1 = cv::Point2i(400, 150);
-const cv::Point2i pickColorPoint2 = cv::Point2i(450, 200);
+const cv::Point2i pickColorPoint1 = cv::Point2i(200, 150);
+const cv::Point2i pickColorPoint2 = cv::Point2i(250, 200);
 
-bool oldToggleColor = false;
 
 bool isIntersectionsNotEmpty(std::vector<cv::Point2f> &intersections) {
     if (intersections.empty()) return false;
@@ -52,7 +51,7 @@ bool isIntersectionsNotEmpty(std::vector<cv::Point2f> &intersections) {
     return true;
 }
 
-void findIntersections(cv::Mat &mat, std::vector<cv::Point2f> &oldIntersections, double offset) {
+inline void findIntersections(cv::Mat &mat, std::vector<cv::Point2f> &oldIntersections, double offset, bool drawContours) {
 
     cv::Mat thresh;
 
@@ -82,8 +81,12 @@ void findIntersections(cv::Mat &mat, std::vector<cv::Point2f> &oldIntersections,
     std::vector<std::vector<cv::Point>> hull(1);
     cv::convexHull(contours[max_index], hull[0]);
 
-    cv::drawContours(mat, contours, max_index, cv::Scalar(0, 255, 0), 10);
-    cv::drawContours(mat, hull, 0, cv::Scalar(255, 0, 0), 10);
+    if (drawContours)
+    {
+        cv::drawContours(mat, contours, max_index, cv::Scalar(0, 255, 0), 10);
+        cv::drawContours(mat, hull, 0, cv::Scalar(255, 0, 0), 10);
+        return;
+    }
 
     cv::Moments mu;
     mu = cv::moments(contours[max_index], false);
@@ -150,19 +153,21 @@ void findIntersections(cv::Mat &mat, std::vector<cv::Point2f> &oldIntersections,
     blank = cv::Mat::zeros(cv::Size(mat.cols, mat.rows), CV_8UC1);
     blank2 = cv::Mat::zeros(cv::Size(mat.cols, mat.rows), CV_8UC1);
 
-    double main_len = std::sqrt(mainVector[0]*mainVector[0] + mainVector[1]*mainVector[1]);
-    cv::Point2f normalized = cv::Point2f (offset*mainVector[0]/main_len, offset*mainVector[1]/main_len);
+//    double main_len = std::sqrt(mainVector[0]*mainVector[0] + mainVector[1]*mainVector[1]);
+//    cv::Point2f normalized = cv::Point2f (offset*mainVector[0]/main_len, offset*mainVector[1]/main_len);
 
     cv::line(blank2, center_of_mass,
-             cv::Point((int) (center_of_mass.x - normalized.x + orthogonalVector[0]),
-                       (int) (center_of_mass.y - normalized.y + orthogonalVector[1])), 1, 1);
+             cv::Point((int) (center_of_mass.x - mainVector[0] / 2.0 + orthogonalVector[0]),
+                       (int) (center_of_mass.y - mainVector[1] / 2.0 + orthogonalVector[1])), 1, 1);
     cv::line(blank2, center_of_mass,
-             cv::Point((int) (center_of_mass.x - normalized.x - orthogonalVector[0]),
-                       (int) (center_of_mass.y - normalized.y - orthogonalVector[1])), 1, 1);
+             cv::Point((int) (center_of_mass.x - mainVector[0] / 2.0 - orthogonalVector[0]),
+                       (int) (center_of_mass.y - mainVector[1] / 2.0 - orthogonalVector[1])), 1, 1);
 
     cv::bitwise_and(blank1, blank2, blank);
     std::vector<cv::Point2i> intersections2;
     cv::findNonZero(blank, intersections2);
+
+    blank2.release(); blank.release(); blank1.release();
 
     std::vector<cv::Point2f> newIntersectons;
 
@@ -189,28 +194,27 @@ Java_com_example_nativeopencvandroidtemplate_MainActivity_adaptiveThresholdFromJ
                                                                                    jobject instance,
                                                                                    jlong matAddr,
                                                                                    jlong tattooAddr,
-                                                                                   jboolean toggleColor
-) {
+                                                                                   jboolean toggleColor,
+                                                                                   jint h_sens,
+                                                                                   jint s_sens,
+                                                                                   jint v_sens) {
 
 
     cv::Mat &mat = *(cv::Mat *) matAddr;      //Mat передается в RGB!
     cv::Mat tattoo = *(cv::Mat *) tattooAddr;
 
     points3d = {
-            cv::Point2f(0.0, tattoo.cols / 3),
-            cv::Point2f(tattoo.rows / 3, tattoo.cols / 3),
-            cv::Point2f(tattoo.rows / 3, 0.0),
+            cv::Point2f(0.0, 720.0),
+            cv::Point2f(1280.0, 720.0),
+            cv::Point2f(1280.0, 0.0),
             cv::Point2f(0.0, 0.0)
+//            cv::Point2f(0.0, tattoo.cols / 3),
+//            cv::Point2f(tattoo.rows / 3, tattoo.cols / 3),
+//            cv::Point2f(tattoo.rows / 3, 0.0),
+//            cv::Point2f(0.0, 0.0)
     };
 
     if (toggleColor)
-    {
-        oldToggleColor = true;
-        cv::rectangle(mat, pickColorPoint1, pickColorPoint2, cv::Scalar(0, 0, 0), 10);
-        return;
-    }
-
-    if (!toggleColor && oldToggleColor)
     {
         cv::Mat roi = cv::Mat(mat, cv::Rect(pickColorPoint1, pickColorPoint2));
         cv::cvtColor(roi, roi, cv::COLOR_RGB2HSV);
@@ -224,15 +228,21 @@ Java_com_example_nativeopencvandroidtemplate_MainActivity_adaptiveThresholdFromJ
         cv::minMaxLoc(bgr_planes[1], &minS, &maxS);
         cv::minMaxLoc(bgr_planes[2], &minV, &maxV);
 
-        lowerBound = cv::Scalar(minH, minS, minV);
-        upperBound = cv::Scalar(maxH, maxS, maxV);
+        lowerBound = cv::Scalar(minH - (maxH-minH)*h_sens/100.0, minS - (maxS-minS)*s_sens/100.0, minV - (maxV-minV)*v_sens/100.0);
+        upperBound = cv::Scalar(maxH + (maxH-minH)*h_sens/100.0, maxS + (maxS-minS)*s_sens/100.0, maxV + (maxV-minV)*v_sens/100.0);
+
+        findIntersections(mat, intersections, tattoo.rows / 3.0, true);
+
+        cv::rectangle(mat, pickColorPoint1, pickColorPoint2, cv::Scalar(0, 0, 0), 10);
+        return;
     }
+
 
     double koeff = 1280.0 / tattoo.cols;
 
     cv::resize(tattoo, tattoo, cv::Size(), koeff, koeff);
 
-    findIntersections(mat, intersections, tattoo.rows / 3.0);
+    findIntersections(mat, intersections, tattoo.rows / 3.0, false);
 
     if (initialized) {
 
@@ -259,8 +269,7 @@ Java_com_example_nativeopencvandroidtemplate_MainActivity_adaptiveThresholdFromJ
         cv::bitwise_and(mat, blank, mat, mask);
         cv::add(mat, dframe, mat);
 
-
-
+        blank.release(); dframe.release(); mask.release(); mask_inv.release();
     }
 
 
